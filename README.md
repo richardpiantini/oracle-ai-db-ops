@@ -2,7 +2,7 @@
 
 A web platform where DBAs ask operational questions about their Oracle database in natural language and get back structured, actionable diagnoses — replacing manual AWR/ASH investigation with AI-powered analysis.
 
-![Oracle](https://img.shields.io/badge/Oracle-26ai%20%7C%2023ai%20%7C%2019c-C74634?style=flat&logo=oracle&logoColor=white)
+![Oracle](https://img.shields.io/badge/Oracle-26ai%20%7C%20%7C%2019c-C74634?style=flat&logo=oracle&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
 ![OCI](https://img.shields.io/badge/OCI-Generative%20AI-4B286D?style=flat)
 
