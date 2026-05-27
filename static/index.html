@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oracle AI Database Operations</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f7f8f9;
+  --panel:#ffffff;
+  --panel2:#fcfcfd;
+  --text:#161513;
+  --muted:#6f6b67;
+  --line:#e7e4e1;
+  --oracle-red:#c74634;
+  --oracle-red-2:#e6523c;
+  --oracle-red-bg:#fff1ef;
+  --green:#237b4b;
+  --yellow:#9a6700;
+  --blue:#0f62fe;
+  --danger:#b42318;
+  --font:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --radius:16px;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.header{height:72px;padding:0 28px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;background:var(--panel)}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-badge{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--oracle-red),var(--oracle-red-2));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+.brand h1{font-size:18px;font-weight:650}
+.brand p{font-size:12px;color:var(--muted)}
+.header-right{display:flex;gap:10px;align-items:center}
+.red-btn,.ghost-btn,.small-btn{border:none;cursor:pointer;font-family:var(--font);font-weight:600}
+.red-btn{background:var(--oracle-red);color:#fff;padding:10px 14px;border-radius:12px}
+.ghost-btn{background:#fff;border:1px solid var(--line);color:var(--text);padding:10px 14px;border-radius:12px}
+.small-btn{background:#fff;border:1px solid var(--line);color:var(--text);padding:8px 12px;border-radius:10px;font-size:12px}
+.small-btn.red{background:var(--oracle-red);border-color:var(--oracle-red);color:#fff}
+.app{display:flex;flex:1;overflow:hidden}
+.sidebar{width:340px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
+.tabbar{padding:14px;display:flex;gap:8px;border-bottom:1px solid var(--line)}
+.tab-btn{flex:1;background:#fff;border:1px solid var(--line);padding:10px 12px;border-radius:12px;cursor:pointer;font-weight:600;color:var(--muted)}
+.tab-btn.active{background:var(--oracle-red-bg);border-color:#f1c5bf;color:var(--oracle-red)}
+.sidebar-content{overflow:auto;padding:10px 0 20px}
+.sidebar-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:14px 20px 8px}
+.tool-btn{width:100%;background:none;border:none;padding:12px 20px;display:flex;gap:12px;align-items:flex-start;text-align:left;cursor:pointer}
+.tool-btn:hover{background:#faf8f7}
+.tool-btn.active{background:var(--oracle-red-bg);border-right:3px solid var(--oracle-red)}
+.tool-num{font-family:var(--mono);font-size:11px;color:var(--muted);min-width:24px;padding-top:2px}
+.tool-main{flex:1}
+.tool-name{font-size:13px;font-weight:600;color:var(--text)}
+.tool-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.dot{width:8px;height:8px;border-radius:50%;margin-top:5px}
+.dot.real-time{background:var(--blue)}
+.dot.predictive{background:#b78103}
+.dot.infra{background:var(--green)}
+.main{flex:1;overflow:auto;padding:28px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+.empty{height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.result-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
+.result-title{font-size:18px;font-weight:650}
+.result-meta{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.section{margin-top:18px}
+.section-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--muted);margin-bottom:8px}
+.section-body{font-size:14px;line-height:1.7;color:#302d2a;white-space:pre-wrap}
+.badge{display:inline-block;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.badge.critical{background:#fef3f2;color:#b42318}
+.badge.warning{background:#fff7e6;color:#9a6700}
+.badge.informational{background:#ecfdf3;color:#237b4b}
+.badge.degrading{background:#fef3f2;color:#b42318}
+.badge.stable{background:#eef4ff;color:#0f62fe}
+.badge.improving{background:#ecfdf3;color:#237b4b}
+.scenario-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.scenario-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.scenario-title{font-size:16px;font-weight:650;margin-bottom:8px}
+.scenario-desc{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:12px}
+.scenario-tools{font-size:12px;color:var(--muted);margin-bottom:12px}
+.scenario-actions{display:flex;gap:8px;flex-wrap:wrap}
+.loading{display:flex;min-height:280px;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.spinner{width:34px;height:34px;border:3px solid #eee;border-top-color:var(--oracle-red);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.modal-backdrop{position:fixed;inset:0;background:rgba(22,21,19,.32);display:none;align-items:center;justify-content:center;padding:20px;z-index:1000}
+.modal{width:min(920px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;border:1px solid var(--line);padding:22px}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-title{font-size:18px;font-weight:700}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field.full{grid-column:1/-1}
+label{font-size:12px;font-weight:700;color:var(--muted)}
+input,select,textarea{font:inherit;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff}
+textarea{min-height:120px;resize:vertical;font-family:var(--mono);font-size:12px}
+.query-block{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--panel2);margin-top:10px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:16px}
+.footer{height:48px;background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="brand">
+    <div class="brand-badge">O</div>
+    <div>
+      <h1>Oracle AI Database Operations</h1>
+      <p>26ai · OCI Generative AI</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="ghost-btn" onclick="openAiToolCreatorModal()">AI Tool Creator</button>
+    <button class="ghost-btn" onclick="openAddToolModal()">+ Add Tool</button>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="tabbar">
+      <button class="tab-btn active" id="analysisTab" onclick="showTab('analysis')">Analysis</button>
+      <button class="tab-btn" id="scenariosTab" onclick="showTab('scenarios')">Scenarios</button>
+    </div>
+    <div class="sidebar-content" id="sidebar"></div>
+  </aside>
+
+  <main class="main">
+<div class="toolbar">
+  <div class="field">
+    <label>Database</label>
+    <select id="dbSelect" style="min-width:200px">
+      <option value="">Loading...</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Time Mode</label>
+    <select id="timeMode" onchange="toggleTimeMode()">
+      <option value="hours">Hours Back</option>
+      <option value="range">Time Range</option>
+    </select>
+  </div>
+
+  <div class="field" id="hoursBackWrap">
+    <label>Hours Back</label>
+    <input id="hoursBack" type="number" min="1" placeholder="e.g. 5">
+  </div>
+
+  <div class="field" id="startTimeWrap" style="display:none">
+    <label>Start Time</label>
+    <input id="startTime" type="datetime-local">
+  </div>
+
+  <div class="field" id="endTimeWrap" style="display:none">
+    <label>End Time</label>
+    <input id="endTime" type="datetime-local">
+  </div>
+
+  <button class="small-btn" onclick="clearTimeWindow()">Clear</button>
+</div>
+
+    <div id="content" class="card empty">Select an analysis tool or open Scenarios.</div>
+  </main>
+</div>
+
+<div class="footer">
+  <span>DBCS 26ai · AIOPSPDB · 10.0.1.60</span>
+  <span>xai.grok-3-fast · OCI Generative AI</span>
+</div>
+
+<div class="modal-backdrop" id="toolModalBackdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="toolModalTitle">Add Tool</div>
+      <button class="ghost-btn" onclick="closeToolModal()">Close</button>
+    </div>
+
+    <div class="grid">
+      <div class="field">
+        <label>Name</label>
+        <input id="toolName" />
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <select id="toolCategory">
+          <option value="real-time">Real-time</option>
+          <option value="predictive">Predictive</option>
+          <option value="infra">Infra</option>
+        </select>
+      </div>
+
+      <div class="field full">
+        <label>Prompt</label>
+        <textarea id="toolPrompt" style="min-height:100px;font-family:var(--font);font-size:14px"></textarea>
+      </div>
+
+      <div class="field">
+        <label>SQL Mode</label>
+        <select id="toolSqlMode" onchange="toggleSqlMode()">
+          <option value="single">Single Query</option>
+          <option value="multi">Multiple Query Blocks</option>
+        </select>
+      </div>
+
+      <div class="field full" id="singleSqlWrap">
+        <label>SQL</label>
+        <textarea id="toolSql" placeholder="SELECT ..."></textarea>
+      </div>
+
+      <div class="field full" id="multiSqlWrap" style="display:none">
+        <label>Query Blocks</label>
+        <div id="multiBlocks"></div>
+        <button class="small-btn" style="margin-top:10px" onclick="addQueryBlock()">+ Add Query Block</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+      <button class="ghost-btn" onclick="closeToolModal()">Cancel</button>
+      <button class="red-btn" onclick="saveTool()">Save Tool</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="aiToolCreatorBackdrop">
+  <div class="modal" style="max-width:860px">
+    <div class="modal-header">
+      <div class="modal-title">AI Tool Creator</div>
+      <button class="ghost-btn" onclick="closeAiToolCreatorModal()">Close</button>
+    </div>
+
+    <div class="field full">
+      <label>Describe the DBA tool you want</label>
+      <textarea id="aiToolRequest" style="min-height:160px;font-family:var(--font);font-size:14px"
+        placeholder="Example: Give me the AWR/ASH slowdown report from 1 AM to 4 AM."></textarea>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+      <button class="ghost-btn" onclick="closeAiToolCreatorModal()">Cancel</button>
+      <button class="red-btn" id="generateBtn" onclick="generateAiTool()">Generate Tool</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let toolsCache = [];
+let scenariosCache = [];
+let activeTab = 'analysis';
+let editingToolId = null;
+let lastRunId = null;
+
+const contentEl = document.getElementById('content');
+const sidebarEl = document.getElementById('sidebar');
+
+async function loadDatabases() {
+  const res = await fetch('/api/databases');
+  const dbs = await res.json();
+  const sel = document.getElementById('dbSelect');
+  sel.innerHTML = dbs.map(d =>
+    `<option value="${d.id}" ${!d.active ? 'disabled' : ''}>${escapeHtml(d.name)}${!d.active ? ' (not configured)' : ''}</option>`
+  ).join('');
+  const active = dbs.find(d => d.active);
+  if (active) sel.value = active.id;
+}
+
+async function init() {
+  await loadDatabases();
+  await refreshTools();
+  await refreshScenarios();
+  renderAnalysisSidebar();
+  toggleTimeMode();
+  setInterval(refreshScenarios, 15000);
+}
+
+function showTab(tab) {
+  activeTab = tab;
+  document.getElementById('analysisTab').classList.toggle('active', tab === 'analysis');
+  document.getElementById('scenariosTab').classList.toggle('active', tab === 'scenarios');
+
+  if (tab === 'analysis') {
+    renderAnalysisSidebar();
+    contentEl.innerHTML = 'Select an analysis tool.';
+    contentEl.className = 'card empty';
+  } else {
+    renderScenarioSidebar();
+    renderScenarioLanding();
+  }
+}
+
+async function refreshTools() {
+  const res = await fetch('/api/tools');
+  toolsCache = await res.json();
+}
+
+async function refreshScenarios() {
+  const res = await fetch('/api/scenarios');
+  scenariosCache = await res.json();
+  if (activeTab === 'scenarios') renderScenarioSidebar();
+}
+
+function renderAnalysisSidebar() {
+  const grouped = {};
+  const labels = {'real-time':'Real-time Analysis','predictive':'Predictive / Early Warning','infra':'Infrastructure'};
+  toolsCache.forEach(t => ((grouped[t.category] ||= []).push(t)));
+
+  let html = '';
+  Object.entries(grouped).forEach(([cat, items]) => {
+    html += `<div class="sidebar-label">${labels[cat] || cat}</div>`;
+    items.forEach(t => {
+      html += `
+        <button class="tool-btn" data-id="${t.id}" onclick="runTool('${t.id}')">
+          <div class="tool-num">${String(t.id).padStart(2,'0')}</div>
+          <div class="dot ${cat}"></div>
+          <div class="tool-main">
+            <div class="tool-name">${escapeHtml(t.name)}</div>
+            <div class="tool-meta">${escapeHtml(t.category)}</div>
+          </div>
+        </button>`;
+    });
+  });
+  sidebarEl.innerHTML = html;
+}
+
+function renderScenarioSidebar() {
+  let html = `<div class="sidebar-label">Scenarios</div>`;
+  scenariosCache.forEach((s, i) => {
+    html += `
+      <button class="tool-btn" onclick="renderSingleScenario('${s.id}')">
+        <div class="tool-num">${String(i+1).padStart(2,'0')}</div>
+        <div class="dot predictive"></div>
+        <div class="tool-main">
+          <div class="tool-name">${escapeHtml(s.name)}</div>
+          <div class="tool-meta">${escapeHtml(s.status || 'idle')}</div>
+        </div>
+      </button>`;
+  });
+  sidebarEl.innerHTML = html;
+}
+
+function renderScenarioLanding() {
+  let html = `<div class="scenario-grid">`;
+  scenariosCache.forEach(s => html += scenarioCard(s));
+  html += `</div>`;
+  contentEl.className = 'card';
+  contentEl.innerHTML = html;
+}
+
+function renderSingleScenario(id) {
+  const s = scenariosCache.find(x => x.id === id);
+  if (!s) return;
+  contentEl.className = 'card';
+  contentEl.innerHTML = scenarioCard(s);
+}
+
+function scenarioCard(s) {
+  const tools = (s.next_tools || []).join(', ') || 'None';
+  return `
+    <div class="scenario-card">
+      <div class="scenario-title">${escapeHtml(s.name)}</div>
+      <div class="scenario-desc">${escapeHtml(s.description)}</div>
+      <div class="scenario-tools">Recommended tools: ${tools}</div>
+      <div class="scenario-tools">Status: <strong>${escapeHtml(s.status || 'idle')}</strong></div>
+      <div class="scenario-actions">
+        <button class="small-btn red" onclick="runScenario('${s.id}')">Run Scenario</button>
+        ${s.id !== 'cleanup' ? `<button class="small-btn" onclick="stopScenario('${s.id}')">Stop</button>` : ''}
+      </div>
+    </div>`;
+}
+
+async function runScenario(id) {
+  contentEl.className = 'card';
+  contentEl.innerHTML = `<div class="loading"><div class="spinner"></div><div>Running scenario...</div></div>`;
+  const res = await fetch('/api/run_scenario', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({scenario_id: id})
+  });
+  const data = await res.json();
+  await refreshScenarios();
+  renderScenarioSidebar();
+
+  if (data.error) {
+    contentEl.innerHTML = `<div class="section"><div class="section-label">Error</div><div class="section-body">${escapeHtml(data.error)}</div></div>`;
+    return;
+  }
+
+  let next = '';
+  (data.next_tools || []).forEach(tid => {
+    next += `<button class="small-btn" style="margin-right:8px;margin-top:8px" onclick="showTab('analysis'); setTimeout(()=>runTool('${tid}'),100)">${tid}</button>`;
+  });
+
+  contentEl.innerHTML = `
+    <div class="result-header">
+      <div class="result-title">Scenario Result</div>
+      <div class="result-meta">${escapeHtml(id)}</div>
+    </div>
+    <div class="section">
+      <div class="section-label">Status</div>
+      <div class="section-body">${escapeHtml(data.status || 'ok')}</div>
+    </div>
+    <div class="section">
+      <div class="section-label">Message</div>
+      <div class="section-body">${escapeHtml(data.message || '')}</div>
+    </div>
+    <div class="section">
+      <div class="section-label">Next Tools</div>
+      <div class="section-body">${next || 'None'}</div>
+    </div>`;
+}
+
+async function stopScenario(id) {
+  const res = await fetch('/api/stop_scenario', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({scenario_id: id})
+  });
+  const data = await res.json();
+  await refreshScenarios();
+  renderScenarioSidebar();
+  contentEl.className = 'card';
+  contentEl.innerHTML = `<div class="section"><div class="section-label">Scenario</div><div class="section-body">${escapeHtml(data.message || data.error || 'Done')}</div></div>`;
+}
+
+function normalizeBadgeClass(text, type) {
+  const t = (text || '').toLowerCase();
+  if (type === 'severity') {
+    if (t.includes('critical')) return 'critical';
+    if (t.includes('warning')) return 'warning';
+    if (t.includes('informational') || t.includes('info')) return 'informational';
+    return 'informational';
+  }
+  if (type === 'trend') {
+    if (t.includes('degrading')) return 'degrading';
+    if (t.includes('improving')) return 'improving';
+    if (t.includes('stable')) return 'stable';
+    return 'stable';
+  }
+  return '';
+}
+
+async function runTool(id) {
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.id === id));
+  const tool = toolsCache.find(t => t.id === id);
+  const payload = {tool_id: id, db_id: document.getElementById('dbSelect').value, ...getTimeWindowPayload()};
+
+  contentEl.className = 'card';
+  contentEl.innerHTML = `<div class="loading"><div class="spinner"></div><div>Running ${escapeHtml(tool?.name || 'tool')}...</div></div>`;
+
+  const res = await fetch('/api/run', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+
+  if (data.error) {
+    contentEl.className = 'card';
+    contentEl.innerHTML = `
+      <div class="result-header">
+        <div><div class="result-title">${escapeHtml(tool?.name || 'Tool Error')}</div></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="small-btn" onclick="openEditTool('${id}')">Edit Tool</button>
+          <button class="small-btn" onclick="deleteTool('${id}')">Delete</button>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-label">Error</div>
+        <div class="section-body">${escapeHtml(data.error)}</div>
+      </div>`;
+    return;
+  }
+
+  lastRunId = data.run_id;
+  renderResult(data);
+}
+
+function parseSections(raw) {
+  const labels = ['SUMMARY','ROOT CAUSE','EVIDENCE','SEVERITY','TREND','RECOMMENDED ACTIONS','HEALTH DIMENSION SCORES'];
+  const sections = [];
+  const lines = raw.split('\n');
+  let current = null;
+  let body = [];
+
+  function normalizeHeader(line) {
+    return line.trim().replace(/^\*\*/, '').replace(/\*\*$/, '').replace(/:$/, '').trim().toUpperCase();
+  }
+
+  for (const line of lines) {
+    const normalized = normalizeHeader(line);
+    if (labels.includes(normalized)) {
+      if (current) sections.push({label: current, body: body.join('\n').trim()});
+      current = normalized;
+      body = [];
+    } else if (current) {
+      body.push(line);
+    }
+  }
+
+  if (current) sections.push({label: current, body: body.join('\n').trim()});
+  if (sections.length === 0) sections.push({label: 'ANALYSIS', body: raw});
+  return sections;
+}
+
+function renderResult(data) {
+  const tool = toolsCache.find(t => t.id === data.id);
+  const sections = parseSections(data.analysis);
+
+  const severitySection = sections.find(s => s.label === 'SEVERITY');
+  const trendSection = sections.find(s => s.label === 'TREND');
+  const otherSections = sections.filter(s => s.label !== 'SEVERITY' && s.label !== 'TREND');
+
+  let html = `
+    <div class="result-header">
+      <div>
+        <div class="result-title">${escapeHtml(data.name)}</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
+          ${severitySection ? `<span class="badge ${normalizeBadgeClass(severitySection.body, 'severity')}">${escapeHtml(severitySection.body.trim())}</span>` : ''}
+          ${trendSection ? `<span class="badge ${normalizeBadgeClass(trendSection.body, 'trend')}">${escapeHtml(trendSection.body.trim())}</span>` : ''}
+          ${data.time_window?.label ? `<span class="badge stable">${escapeHtml(data.time_window.label)}</span>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="small-btn" onclick="openEditTool('${data.id}')">Edit Tool</button>
+        <button class="small-btn" onclick="deleteTool('${data.id}')">Delete</button>
+        <button class="small-btn" onclick="exportRun('xlsx')">Export Excel</button>
+        <button class="small-btn" onclick="exportRun('docx')">Export Doc</button>
+        <div class="result-meta">${data.elapsed_secs}s</div>
+      </div>
+    </div>`;
+
+  otherSections.forEach(s => {
+    html += `<div class="section"><div class="section-label">${escapeHtml(s.label)}</div>`;
+    html += `<div class="section-body">${formatBody(s.body)}</div>`;
+    html += `</div>`;
+  });
+
+  html += `<div class="section"><div class="section-label">Tool Prompt</div><div class="section-body">${escapeHtml(tool?.prompt || '')}</div></div>`;
+
+  if (tool?.references?.length) {
+    html += `
+      <div class="section">
+        <div class="section-label">oracle-db-skills references</div>
+        <div class="section-body">
+          ${tool.references.map(r => `<code style="font-family:var(--mono);background:#f7f7f7;padding:2px 6px;border-radius:6px;display:inline-block;margin:4px 6px 0 0">${escapeHtml(r)}</code>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  contentEl.className = 'card';
+  contentEl.innerHTML = html;
+}
+
+async function exportRun(kind) {
+  if (!lastRunId) {
+    alert('Run a tool first.');
+    return;
+  }
+  const res = await fetch(`/api/export/${kind}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({run_id: lastRunId})
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    alert(err.error || 'Export failed');
+    return;
+  }
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = kind === 'xlsx' ? 'tool_export.xlsx' : 'tool_export.docx';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+async function openEditTool(id) {
+  const res = await fetch(`/api/tools/${id}`);
+  const tool = await res.json();
+  if (tool.error) return alert(tool.error);
+
+  editingToolId = tool.id;
+  document.getElementById('toolModalTitle').innerText = 'Edit Tool';
+  document.getElementById('toolName').value = tool.name || '';
+  document.getElementById('toolCategory').value = tool.category || 'real-time';
+  document.getElementById('toolPrompt').value = tool.prompt || '';
+  document.getElementById('toolSqlMode').value = tool.sql_mode || 'single';
+  document.getElementById('toolSql').value = tool.sql || '';
+  document.getElementById('multiBlocks').innerHTML = '';
+
+  if (tool.sql_mode === 'multi') {
+    Object.entries(tool.queries || {}).forEach(([label, sql]) => addQueryBlock(label, sql));
+  } else {
+    addQueryBlock();
+  }
+
+  toggleSqlMode();
+  document.getElementById('toolModalBackdrop').style.display = 'flex';
+}
+
+async function deleteTool(id) {
+  if (!confirm('Delete this tool?')) return;
+  const res = await fetch(`/api/tools/${id}`, {method:'DELETE'});
+  const data = await res.json();
+  if (data.error) return alert(data.error);
+  await refreshTools();
+  renderAnalysisSidebar();
+  contentEl.className = 'card empty';
+  contentEl.innerHTML = 'Tool deleted.';
+}
+
+function openAddToolModal() {
+  editingToolId = null;
+  document.getElementById('toolModalTitle').innerText = 'Add Tool';
+  document.getElementById('toolName').value = '';
+  document.getElementById('toolCategory').value = 'real-time';
+  document.getElementById('toolPrompt').value = '';
+  document.getElementById('toolSqlMode').value = 'single';
+  document.getElementById('toolSql').value = '';
+  document.getElementById('multiBlocks').innerHTML = '';
+  addQueryBlock();
+  toggleSqlMode();
+  document.getElementById('toolModalBackdrop').style.display = 'flex';
+}
+
+function closeToolModal() {
+  document.getElementById('toolModalBackdrop').style.display = 'none';
+}
+
+function toggleSqlMode() {
+  const mode = document.getElementById('toolSqlMode').value;
+  document.getElementById('singleSqlWrap').style.display = mode === 'single' ? 'block' : 'none';
+  document.getElementById('multiSqlWrap').style.display = mode === 'multi' ? 'block' : 'none';
+}
+
+function toggleTimeMode() {
+  const mode = document.getElementById('timeMode').value;
+
+  document.getElementById('hoursBackWrap').style.display = mode === 'hours' ? 'block' : 'none';
+  document.getElementById('startTimeWrap').style.display = mode === 'range' ? 'block' : 'none';
+  document.getElementById('endTimeWrap').style.display = mode === 'range' ? 'block' : 'none';
+
+  if (mode === 'hours') {
+    document.getElementById('startTime').value = '';
+    document.getElementById('endTime').value = '';
+  } else {
+    document.getElementById('hoursBack').value = '';
+  }
+}
+
+function getTimeWindowPayload() {
+  const mode = document.getElementById('timeMode').value;
+
+  if (mode === 'hours') {
+    const hoursBack = document.getElementById('hoursBack').value;
+    return {
+      hours_back: hoursBack ? parseInt(hoursBack, 10) : null,
+      start_time: null,
+      end_time: null
+    };
+  }
+
+  const startTime = document.getElementById('startTime').value;
+  const endTime = document.getElementById('endTime').value;
+
+  return {
+    hours_back: null,
+    start_time: startTime ? startTime.replace('T', ' ') + ':00' : null,
+    end_time: endTime ? endTime.replace('T', ' ') + ':00' : null
+  };
+}
+
+function clearTimeWindow() {
+  document.getElementById('timeMode').value = 'hours';
+  document.getElementById('hoursBack').value = '';
+  document.getElementById('startTime').value = '';
+  document.getElementById('endTime').value = '';
+  toggleTimeMode();
+}
+
+function addQueryBlock(label = '', sql = '') {
+  const wrap = document.getElementById('multiBlocks');
+  const div = document.createElement('div');
+  div.className = 'query-block';
+  div.innerHTML = `
+    <div class="field">
+      <label>Block Label</label>
+      <input class="qb-label" value="${escapeAttr(label)}" />
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>SQL</label>
+      <textarea class="qb-sql">${escapeHtml(sql)}</textarea>
+    </div>`;
+  wrap.appendChild(div);
+}
+
+async function saveTool() {
+  const mode = document.getElementById('toolSqlMode').value;
+  const payload = {
+    id: editingToolId,
+    name: document.getElementById('toolName').value.trim(),
+    category: document.getElementById('toolCategory').value,
+    prompt: document.getElementById('toolPrompt').value.trim(),
+    sql_mode: mode
+  };
+
+  if (mode === 'single') {
+    payload.sql = document.getElementById('toolSql').value;
+  } else {
+    payload.queries = {};
+    document.querySelectorAll('#multiBlocks .query-block').forEach(block => {
+      const label = block.querySelector('.qb-label').value.trim();
+      const sql = block.querySelector('.qb-sql').value;
+      if (label) payload.queries[label] = sql;
+    });
+  }
+
+  const res = await fetch('/api/tools/upsert', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (data.error) return alert(data.error);
+
+  await refreshTools();
+  renderAnalysisSidebar();
+  closeToolModal();
+}
+
+function openAiToolCreatorModal() {
+  document.getElementById('aiToolRequest').value = '';
+  document.getElementById('aiToolCreatorBackdrop').style.display = 'flex';
+}
+
+function closeAiToolCreatorModal() {
+  document.getElementById('aiToolCreatorBackdrop').style.display = 'none';
+}
+
+async function generateAiTool() {
+  const request = document.getElementById('aiToolRequest').value.trim();
+  if (!request) {
+    alert('Enter a tool request first.');
+    return;
+  }
+
+  const btn = document.getElementById('generateBtn');
+  const textarea = document.getElementById('aiToolRequest');
+  const origBtn = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px"></span>Generating...';
+  textarea.disabled = true;
+
+  let data;
+  try {
+    const res = await fetch('/api/ai_tool_creator', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({request})
+    });
+    data = await res.json();
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = origBtn;
+    textarea.disabled = false;
+    alert('Network error: ' + e.message);
+    return;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = origBtn;
+  textarea.disabled = false;
+
+  if (data.error) {
+    alert(data.error);
+    return;
+  }
+
+  const tool = data.tool;
+  closeAiToolCreatorModal();
+
+  editingToolId = null;
+  document.getElementById('toolModalTitle').innerText = 'Review AI-Generated Tool';
+  document.getElementById('toolName').value = tool.name || '';
+  document.getElementById('toolCategory').value = tool.category || 'real-time';
+  document.getElementById('toolPrompt').value = tool.prompt || '';
+  document.getElementById('toolSqlMode').value = tool.sql_mode || 'single';
+  document.getElementById('toolSql').value = tool.sql || '';
+  document.getElementById('multiBlocks').innerHTML = '';
+
+  if (tool.sql_mode === 'multi') {
+    Object.entries(tool.queries || {}).forEach(([label, sql]) => addQueryBlock(label, sql));
+  } else {
+    addQueryBlock();
+  }
+
+  toggleSqlMode();
+  document.getElementById('toolModalBackdrop').style.display = 'flex';
+}
+
+function formatBody(text) {
+  return escapeHtml(text)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.*?)`/g, '<code style="font-family:var(--mono);background:#f7f7f7;padding:1px 4px;border-radius:4px">$1</code>')
+    .replace(/\n/g, '<br>');
+}
+
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
+function escapeAttr(str) {
+  return String(str ?? '').replaceAll('"', '&quot;');
+}
+
+init();
+</script>
+</body>
+</html>

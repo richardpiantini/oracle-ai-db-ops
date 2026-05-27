@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+.env
+*.pem
+.oci/
+exports/
+*.log
+lock_holder.log
+lock_waiter.log
+.vscode/
+.idea/
+.DS_Store
+*.local

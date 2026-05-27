@@ -1,0 +1,12 @@
+[
+  {
+    "id": "default",
+    "name": "My Oracle Database",
+    "host": "localhost",
+    "port": 1521,
+    "service": "ORCLPDB1",
+    "user": "ai_ops",
+    "password": "",
+    "active": true
+  }
+]

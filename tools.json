@@ -1,0 +1,185 @@
+[
+  {
+    "id": "1",
+    "name": "AWR/ASH slowdown analysis",
+    "category": "real-time",
+    "prompt": "Analyze AWR and ASH for the last 2 hours and tell me the main cause of slowdown: CPU, I/O, locks, log file sync, or parsing.",
+    "sql_mode": "multi",
+    "references": [
+      "skills/performance/awr-reports.md",
+      "skills/performance/ash-analysis.md",
+      "skills/performance/wait-events.md"
+    ],
+    "queries": {
+      "wait_class_breakdown": "SELECT wait_class, event_name AS event, ROUND(SUM(time_waited_micro) / 1e6, 2) AS wait_seconds, ROUND(SUM(time_waited_micro) * 100 / NULLIF(SUM(SUM(time_waited_micro)) OVER(), 0), 2) AS pct_of_total FROM dba_hist_system_event e JOIN dba_hist_snapshot s ON e.snap_id = s.snap_id AND e.dbid = s.dbid AND e.instance_number = s.instance_number WHERE s.end_interval_time >= SYSTIMESTAMP - INTERVAL '2' HOUR AND e.wait_class != 'Idle' GROUP BY wait_class, event_name ORDER BY wait_seconds DESC FETCH FIRST 20 ROWS ONLY",
+      "db_time_stats": "SELECT stat_name, ROUND(SUM(value), 2) AS total_value FROM dba_hist_sysstat ss JOIN dba_hist_snapshot s ON ss.snap_id = s.snap_id AND ss.dbid = s.dbid AND ss.instance_number = s.instance_number WHERE s.end_interval_time >= SYSTIMESTAMP - INTERVAL '2' HOUR AND stat_name IN ('DB time','DB CPU','redo size','physical reads','parse count (hard)','session logical reads','user calls') GROUP BY stat_name"
+    }
+  },
+  {
+    "id": "2",
+    "name": "Top SQL by DB time + plan changes",
+    "category": "real-time",
+    "prompt": "What are the top 10 SQL statements by DB time in the last hour, and which ones changed execution plan recently?",
+    "sql_mode": "multi",
+    "references": [
+      "skills/performance/awr-reports.md",
+      "skills/performance/explain-plan.md",
+      "skills/performance/optimizer-stats.md"
+    ],
+    "queries": {
+      "top_sql": "SELECT sql_id, SUM(elapsed_time_delta) / 1e6 AS elapsed_secs, SUM(executions_delta) AS execs, ROUND(SUM(elapsed_time_delta) / NULLIF(SUM(executions_delta), 0) / 1e6, 4) AS secs_per_exec, SUM(buffer_gets_delta) AS buffer_gets, SUM(disk_reads_delta) AS disk_reads, SUM(rows_processed_delta) AS rows_processed FROM dba_hist_sqlstat ss JOIN dba_hist_snapshot s ON ss.snap_id = s.snap_id AND ss.dbid = s.dbid AND ss.instance_number = s.instance_number WHERE s.end_interval_time >= SYSTIMESTAMP - INTERVAL '1' HOUR GROUP BY sql_id ORDER BY elapsed_secs DESC FETCH FIRST 10 ROWS ONLY",
+      "plan_changes": "SELECT sql_id, COUNT(DISTINCT plan_hash_value) AS plan_count, LISTAGG(DISTINCT plan_hash_value, ', ') WITHIN GROUP (ORDER BY plan_hash_value) AS plan_hashes FROM dba_hist_sql_plan WHERE timestamp >= SYSDATE - 7 GROUP BY sql_id HAVING COUNT(DISTINCT plan_hash_value) > 1 ORDER BY plan_count DESC FETCH FIRST 20 ROWS ONLY"
+    }
+  },
+  {
+    "id": "3",
+    "name": "Blocking sessions",
+    "category": "real-time",
+    "prompt": "Identify any blocking and blocked sessions right now, and tell me which SQL_IDs and objects are involved.",
+    "sql_mode": "single",
+    "references": [
+      "skills/appdev/locking-concurrency.md",
+      "skills/performance/wait-events.md"
+    ],
+    "sql": "SELECT s.sid, s.serial#, s.username, s.sql_id, s.event, s.wait_class, s.seconds_in_wait, s.blocking_session, s.blocking_session_status, (SELECT object_name FROM dba_objects WHERE object_id = s.row_wait_obj# AND ROWNUM = 1) AS locked_object, (SELECT SUBSTR(sql_text, 1, 240) FROM v$sql WHERE sql_id = s.sql_id AND ROWNUM = 1) AS sql_text FROM v$session s WHERE s.blocking_session IS NOT NULL OR s.sid IN (SELECT blocking_session FROM v$session WHERE blocking_session IS NOT NULL) ORDER BY CASE WHEN s.sid IN (SELECT blocking_session FROM v$session WHERE blocking_session IS NOT NULL) AND s.blocking_session IS NULL THEN 0 ELSE 1 END, s.seconds_in_wait DESC"
+  },
+  {
+    "id": "4",
+    "name": "Active sessions by wait class",
+    "category": "real-time",
+    "prompt": "Show me every database session that is active right now, grouped by wait class, with the top blockers at the top.",
+    "sql_mode": "single",
+    "references": [
+      "skills/performance/wait-events.md",
+      "skills/appdev/locking-concurrency.md"
+    ],
+    "sql": "SELECT NVL(s.wait_class, 'On CPU') AS wait_class, s.sid, s.serial#, s.username, s.sql_id, s.event, s.seconds_in_wait, s.blocking_session, s.module, s.action, (SELECT SUBSTR(q.sql_text, 1, 240) FROM v$sql q WHERE q.sql_id = s.sql_id AND ROWNUM = 1) AS sql_text FROM v$session s WHERE s.status = 'ACTIVE' AND s.type = 'USER' ORDER BY CASE WHEN s.sid IN (SELECT blocking_session FROM v$session WHERE blocking_session IS NOT NULL) THEN 0 ELSE 1 END, wait_class, s.seconds_in_wait DESC"
+  },
+  {
+    "id": "5",
+    "name": "Performance vs yesterday",
+    "category": "real-time",
+    "prompt": "Compare current system performance with the same time yesterday and tell me what changed materially.",
+    "sql_mode": "multi",
+    "references": [
+      "skills/performance/awr-reports.md",
+      "skills/performance/wait-events.md"
+    ],
+    "queries": {
+      "current_period": "SELECT stat_name, SUM(value) AS total FROM dba_hist_sysstat ss JOIN dba_hist_snapshot s ON ss.snap_id = s.snap_id AND ss.dbid = s.dbid AND ss.instance_number = s.instance_number WHERE s.end_interval_time >= SYSTIMESTAMP - INTERVAL '1' HOUR AND stat_name IN ('DB time','DB CPU','physical reads','redo size','user calls','parse count (hard)','session logical reads') GROUP BY stat_name",
+      "yesterday_period": "SELECT stat_name, SUM(value) AS total FROM dba_hist_sysstat ss JOIN dba_hist_snapshot s ON ss.snap_id = s.snap_id AND ss.dbid = s.dbid AND ss.instance_number = s.instance_number WHERE s.end_interval_time BETWEEN SYSTIMESTAMP - INTERVAL '25' HOUR AND SYSTIMESTAMP - INTERVAL '24' HOUR AND stat_name IN ('DB time','DB CPU','physical reads','redo size','user calls','parse count (hard)','session logical reads') GROUP BY stat_name",
+      "current_waits": "SELECT wait_class, ROUND(SUM(time_waited_micro)/1e6, 2) AS wait_secs FROM dba_hist_system_event e JOIN dba_hist_snapshot s ON e.snap_id = s.snap_id AND e.dbid = s.dbid AND e.instance_number = s.instance_number WHERE s.end_interval_time >= SYSTIMESTAMP - INTERVAL '1' HOUR AND e.wait_class != 'Idle' GROUP BY wait_class ORDER BY wait_secs DESC",
+      "yesterday_waits": "SELECT wait_class, ROUND(SUM(time_waited_micro)/1e6, 2) AS wait_secs FROM dba_hist_system_event e JOIN dba_hist_snapshot s ON e.snap_id = s.snap_id AND e.dbid = s.dbid AND e.instance_number = s.instance_number WHERE s.end_interval_time BETWEEN SYSTIMESTAMP - INTERVAL '25' HOUR AND SYSTIMESTAMP - INTERVAL '24' HOUR AND e.wait_class != 'Idle' GROUP BY wait_class ORDER BY wait_secs DESC"
+    }
+  },
+  {
+    "id": "6",
+    "name": "Risky query patterns",
+    "category": "predictive",
+    "prompt": "Which query patterns may cause slowdowns or instability? Score each by risk and explain why.",
+    "sql_mode": "multi",
+    "references": [
+      "skills/performance/index-strategy.md",
+      "skills/performance/explain-plan.md",
+      "skills/performance/optimizer-stats.md"
+    ],
+    "queries": {
+      "full_scans_large": "SELECT p.sql_id, p.operation, p.options, p.object_name, ROUND(seg.bytes / 1048576, 1) AS segment_mb FROM v$sql_plan p LEFT JOIN dba_segments seg ON seg.segment_name = p.object_name AND seg.owner = p.object_owner WHERE p.operation = 'TABLE ACCESS' AND p.options = 'FULL' AND seg.bytes > 104857600 ORDER BY seg.bytes DESC FETCH FIRST 20 ROWS ONLY",
+      "inefficient_sql": "SELECT sql_id, executions, buffer_gets, rows_processed, ROUND(buffer_gets / NULLIF(rows_processed, 0), 0) AS gets_per_row, ROUND(elapsed_time / 1e6, 2) AS elapsed_secs, ROUND(cpu_time / 1e6, 2) AS cpu_secs FROM v$sql WHERE executions > 0 AND rows_processed > 0 AND buffer_gets / NULLIF(rows_processed, 0) > 1000 ORDER BY buffer_gets DESC FETCH FIRST 20 ROWS ONLY",
+      "cartesian_joins": "SELECT DISTINCT sql_id, operation, options FROM v$sql_plan WHERE operation = 'MERGE JOIN' AND options = 'CARTESIAN' FETCH FIRST 20 ROWS ONLY",
+      "plan_instability": "SELECT sql_id, COUNT(DISTINCT plan_hash_value) AS plan_count FROM dba_hist_sql_plan WHERE timestamp >= SYSDATE - 7 GROUP BY sql_id HAVING COUNT(DISTINCT plan_hash_value) >= 2 ORDER BY plan_count DESC FETCH FIRST 20 ROWS ONLY"
+    }
+  },
+  {
+    "id": "7",
+    "name": "Workload spikes",
+    "category": "predictive",
+    "prompt": "View spikes in workload over the past 24 hours and tell me what likely caused them.",
+    "sql_mode": "multi",
+    "references": [
+      "skills/performance/awr-reports.md",
+      "skills/performance/ash-analysis.md"
+    ],
+    "queries": {
+      "hourly_dbtime": "SELECT TO_CHAR(s.end_interval_time, 'YYYY-MM-DD HH24:MI') AS snap_time, ROUND(SUM(ss.value) / 1e6, 2) AS db_time_secs FROM dba_hist_sysstat ss JOIN dba_hist_snapshot s ON ss.snap_id = s.snap_id AND ss.dbid = s.dbid AND ss.instance_number = s.instance_number WHERE ss.stat_name = 'DB time' AND s.end_interval_time >= SYSTIMESTAMP - INTERVAL '24' HOUR GROUP BY TO_CHAR(s.end_interval_time, 'YYYY-MM-DD HH24:MI') ORDER BY snap_time",
+      "top_sql_recent": "SELECT sql_id, SUM(elapsed_time_delta) / 1e6 AS elapsed_secs, SUM(executions_delta) AS execs FROM dba_hist_sqlstat ss JOIN dba_hist_snapshot s ON ss.snap_id = s.snap_id AND ss.dbid = s.dbid AND ss.instance_number = s.instance_number WHERE s.end_interval_time >= SYSTIMESTAMP - INTERVAL '2' HOUR GROUP BY sql_id ORDER BY elapsed_secs DESC FETCH FIRST 10 ROWS ONLY"
+    }
+  },
+  {
+    "id": "8",
+    "name": "Early warning scan",
+    "category": "predictive",
+    "prompt": "Detect early signs of bad performance before this becomes an incident. Score each health dimension as Green, Yellow, or Red.",
+    "sql_mode": "multi",
+    "references": [
+      "skills/performance/memory-tuning.md",
+      "skills/performance/wait-events.md",
+      "skills/performance/optimizer-stats.md",
+      "skills/admin/undo-management.md"
+    ],
+    "queries": {
+      "parse_ratio": "SELECT ROUND((SELECT value FROM v$sysstat WHERE name = 'parse count (hard)') * 100.0 / NULLIF((SELECT value FROM v$sysstat WHERE name = 'parse count (total)'), 0), 2) AS hard_parse_pct FROM dual",
+      "log_file_sync": "SELECT ROUND(time_waited_micro / NULLIF(total_waits, 0) / 1000, 2) AS avg_ms FROM v$system_event WHERE event = 'log file sync'",
+      "buffer_cache_hit": "SELECT ROUND((1 - (SELECT value FROM v$sysstat WHERE name = 'physical reads') * 1.0 / NULLIF((SELECT value FROM v$sysstat WHERE name = 'session logical reads'), 0)) * 100, 2) AS hit_ratio FROM dual",
+      "temp_usage": "SELECT tablespace_name, ROUND((tablespace_size - free_space) * 100.0 / NULLIF(tablespace_size, 0), 2) AS pct_used FROM dba_temp_free_space",
+      "resource_limits": "SELECT resource_name, current_utilization, max_utilization, limit_value FROM v$resource_limit WHERE resource_name IN ('processes', 'sessions')",
+      "latch_contention": "SELECT ROUND(SUM(CASE WHEN wait_class = 'Concurrency' THEN time_waited_micro ELSE 0 END) * 100.0 / NULLIF(SUM(time_waited_micro), 0), 2) AS concurrency_pct FROM v$system_event WHERE wait_class != 'Idle'",
+      "pga_usage": "SELECT name, value FROM v$pgastat WHERE name IN ('total PGA allocated', 'aggregate PGA target parameter', 'total PGA inuse', 'over allocation count')",
+      "undo_activity": "SELECT MAX(maxquerylen) AS max_query_secs, SUM(unxpstealcnt) AS unexpired_steals, SUM(ssolderrcnt) AS snapshot_too_old_errors FROM v$undostat WHERE begin_time >= SYSDATE - 1/24"
+    }
+  },
+  {
+    "id": "9",
+    "name": "Tablespace capacity",
+    "category": "infra",
+    "prompt": "Check tablespace usage across the database and tell me which permanent, temporary, or undo tablespaces are close to capacity.",
+    "sql_mode": "multi",
+    "references": [
+      "skills/admin/undo-management.md",
+      "skills/admin/backup-recovery.md"
+    ],
+    "queries": {
+      "permanent": "SELECT m.tablespace_name, t.contents AS ts_type, ROUND(m.used_space * (SELECT block_size FROM dba_tablespaces WHERE tablespace_name = m.tablespace_name) / 1048576, 1) AS used_mb, ROUND(m.tablespace_size * (SELECT block_size FROM dba_tablespaces WHERE tablespace_name = m.tablespace_name) / 1048576, 1) AS max_mb, ROUND(m.used_percent, 2) AS pct_used FROM dba_tablespace_usage_metrics m JOIN dba_tablespaces t ON m.tablespace_name = t.tablespace_name ORDER BY m.used_percent DESC",
+      "temp": "SELECT tablespace_name, ROUND(tablespace_size / 1048576, 1) AS total_mb, ROUND(free_space / 1048576, 1) AS free_mb, ROUND((tablespace_size - free_space) * 100.0 / NULLIF(tablespace_size, 0), 2) AS pct_used FROM dba_temp_free_space",
+      "undo": "SELECT undotsn, ROUND(SUM(undoblks * (SELECT block_size FROM dba_tablespaces WHERE contents = 'UNDO' AND ROWNUM = 1)) / 1048576, 1) AS undo_mb, MAX(maxquerylen) AS max_query_secs, SUM(unxpstealcnt) AS unexpired_steals FROM v$undostat WHERE begin_time >= SYSDATE - 1/24 GROUP BY undotsn"
+    }
+  },
+  {
+    "id": "10",
+    "name": "Data Guard health",
+    "category": "infra",
+    "prompt": "Summarize the health of the Data Guard configuration: primary, standby role, transport lag, apply lag, and any broker warnings.",
+    "sql_mode": "multi",
+    "references": [
+      "skills/admin/dataguard.md",
+      "skills/admin/redo-log-management.md"
+    ],
+    "queries": {
+      "database_role": "SELECT name, db_unique_name, database_role, protection_mode, switchover_status, dataguard_broker FROM v$database",
+      "dest_status": "SELECT dest_id, status, type, destination, error, CAST(applied_seq# AS VARCHAR2(20)) AS applied_seq, CAST(archived_seq# AS VARCHAR2(20)) AS archived_seq FROM v$archive_dest_status WHERE status != 'INACTIVE'",
+      "dg_stats": "SELECT name, value, unit FROM v$dataguard_stats",
+      "dg_status_msgs": "SELECT facility, severity, message, TO_CHAR(timestamp, 'YYYY-MM-DD HH24:MI:SS') AS msg_time FROM v$dataguard_status WHERE timestamp >= SYSDATE - 1 ORDER BY timestamp DESC FETCH FIRST 20 ROWS ONLY"
+    }
+  },
+  {
+    "id": "11",
+    "name": "Early Warning Performance Issues Detector",
+    "category": "predictive",
+    "prompt": "Analyze historical performance data to detect early warning signs of potential issues before they escalate into incidents. Focus on trends in wait events, system statistics, and SQL performance metrics over the last 24 hours using AWR data. Highlight anomalies or increasing trends in wait times, resource usage, or poorly performing SQL statements that could indicate emerging problems. Provide actionable insights or recommendations based on the findings, such as identifying specific events or SQL statements to investigate further. Reference skills from performance/awr-reports.md and performance/wait-events.md for guidance on interpreting AWR data and wait event analysis.",
+    "sql_mode": "multi",
+    "queries": {
+      "wait_events_trend": "SELECT s.snap_id, s.begin_interval_time, s.end_interval_time, e.event_name, e.wait_class, e.total_waits, e.time_waited_micro, ROUND(e.time_waited_micro / NULLIF(e.total_waits, 0), 2) AS avg_wait_time_micro FROM DBA_HIST_SYSTEM_EVENT e JOIN DBA_HIST_SNAPSHOT s ON e.snap_id = s.snap_id AND e.dbid = s.dbid AND e.instance_number = s.instance_number WHERE s.end_interval_time >= SYSTIMESTAMP - INTERVAL '24' HOUR AND e.time_waited_micro > 0 ORDER BY s.begin_interval_time, e.time_waited_micro DESC",
+      "system_stats_trend": "SELECT s.snap_id, s.begin_interval_time, s.end_interval_time, st.stat_name, st.value FROM DBA_HIST_SYSSTAT st JOIN DBA_HIST_SNAPSHOT s ON st.snap_id = s.snap_id AND st.dbid = s.dbid AND st.instance_number = s.instance_number WHERE s.end_interval_time >= SYSTIMESTAMP - INTERVAL '24' HOUR AND st.stat_name IN ('user calls', 'physical reads', 'physical writes', 'db block gets', 'consistent gets') ORDER BY s.begin_interval_time, st.stat_name",
+      "top_sql_by_elapsed_time": "SELECT s.snap_id, s.begin_interval_time, s.end_interval_time, q.sql_id, q.plan_hash_value, q.executions_delta, q.elapsed_time_delta, q.buffer_gets_delta, q.disk_reads_delta, ROUND(q.elapsed_time_delta / NULLIF(q.executions_delta, 0), 2) AS avg_elapsed_time_per_exec FROM DBA_HIST_SQLSTAT q JOIN DBA_HIST_SNAPSHOT s ON q.snap_id = s.snap_id AND q.dbid = s.dbid AND q.instance_number = s.instance_number WHERE s.end_interval_time >= SYSTIMESTAMP - INTERVAL '24' HOUR AND q.executions_delta > 0 ORDER BY q.elapsed_time_delta DESC FETCH FIRST 10 ROWS ONLY"
+    },
+    "sql": "",
+    "references": [
+      "skills/performance/awr-reports.md",
+      "skills/performance/ash-analysis.md",
+      "skills/performance/wait-events.md",
+      "skills/performance/optimizer-stats.md",
+      "skills/appdev/locking-concurrency.md",
+      "skills/admin/backup-recovery.md"
+    ]
+  }
+]
