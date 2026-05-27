@@ -41,7 +41,7 @@ Summary, Root Cause, Evidence, Severity, Trend, Recommended Actions
 
 ## Prerequisites
 
-- **Oracle Database** — 19c, 23ai, or 26ai with Enterprise Edition (Diagnostics Pack for AWR/ASH)
+- **Oracle Database** — 19c, or 26ai with Enterprise Edition (Diagnostics Pack for AWR/ASH)
 - **OCI account** with access to OCI Generative AI
 - **Python 3.11+**
 - **OCI CLI config** (`~/.oci/config`) with API key
